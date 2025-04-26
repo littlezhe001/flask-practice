@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from flask import Blueprint, request, jsonify, session, url_for
+from flask import Blueprint, request, jsonify, session
 from werkzeug.utils import secure_filename
 
 from app import db
@@ -55,7 +55,6 @@ def upload_video():
     save_path = os.path.join(savedir_path, file_name)
     file.save(save_path)
 
-    file.save(save_path)
     username = session['username']
     new_record = Record_video(
         username = username,

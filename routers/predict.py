@@ -2,8 +2,9 @@ import traceback
 
 from flask import Blueprint, request, jsonify, current_app
 import os
-
 from ultralytics import YOLO
+
+from routers.utils import video_to_json
 
 predict_bp = Blueprint('predict', __name__)
 
@@ -23,12 +24,12 @@ def predict():
         # 2. 验证文件路径
         target_folder = "photo"
         full_path = os.path.join(target_folder, filename)
+        # print("detecting:", full_path)
         if not os.path.exists(full_path):
             return jsonify({"error": "File not found"}), 404
 
         # 3. 执行预测
         model = YOLO(r"E:\Anaconda3\Lib\site-packages\nudenet\640m.pt")
-        output_dir = r"E:\毕业设计\flask\predict_res"
         results = model.predict(full_path)
 
         detections = []
@@ -58,6 +59,40 @@ def predict():
             "success": True,
             "detections": detections
         }),200
+
+    except Exception as e:
+        # 6. 捕获所有异常并返回错误响应
+        return jsonify({
+            "error": str(e),
+            "traceback": traceback.format_exc() if current_app.debug else None
+        }), 500
+
+@predict_bp.route('/predictVideo', methods=['POST'])
+def predictVideo():
+    try:
+        # 1. 验证请求
+        if not request.is_json:
+            return jsonify({"error": "Request must be JSON"}), 400
+
+        data = request.get_json()
+        videoname = data.get("videoname")
+        if not videoname:
+            return jsonify({"error": "Missing filename"}), 400
+
+        # 2. 验证文件路径
+        target_folder = "video"
+        full_path = os.path.join(target_folder, videoname)
+        if not os.path.exists(full_path):
+            return jsonify({"error": "File not found"}), 404
+
+        # 3. 执行预测
+        reports = video_to_json(full_path, output_path=None, frame_skip=5, conf_threshold=0.55)
+
+        # 5. 返回成功响应
+        return jsonify({
+            "success": True,
+            "report": reports
+        }), 200
 
     except Exception as e:
         # 6. 捕获所有异常并返回错误响应

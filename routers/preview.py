@@ -3,7 +3,7 @@ import os
 from flask import session, jsonify, current_app, send_from_directory, Blueprint
 from werkzeug.utils import secure_filename
 
-from app.models import Record_photo
+from app.models import Record_photo, Record_video
 
 preview_bp = Blueprint('preview', __name__)
 
@@ -47,14 +47,14 @@ def get_history_video():
     username = session['username']
     try:
         # 查询该用户的所有上传记录，按时间降序排列
-        records = Record_photo.query.filter_by(username=username) \
-            .order_by(Record_photo.upload_time.desc()) \
+        records = Record_video.query.filter_by(username=username) \
+            .order_by(Record_video.upload_time.desc()) \
             .all()
         # 构建返回数据
         history_data = []
         for record in records:
             history_data.append({
-                'video_name': record.photo_name,
+                'video_name': record.video_name,
                 'upload_time': record.upload_time.strftime('%Y-%m-%d %H:%M:%S'),
             })
 
