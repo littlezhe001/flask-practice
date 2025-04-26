@@ -60,17 +60,48 @@
         </el-card>
 
         <!-- 检测进度对话框 -->
-        <el-dialog v-model="detectionDialogVisible" title="视频检测进度" width="30%" :close-on-click-modal="false" :show-close="false">
+        <el-dialog v-model="detectionDialogVisible" title="视频检测进度" width="30%" :close-on-click-modal="false"
+            :show-close="false">
             <el-progress :percentage="detectionProgress" :status="detectionStatus" />
             <p class="progress-text">{{ detectionMessage }}</p>
             <template #footer>
-                <el-button v-if="detectionStatus === 'success'" type="primary" @click="detectionDialogVisible = false">
+                <el-button v-if="detectionStatus === 'success'" type="primary" @click="showDetectionDetails">
                     完成
                 </el-button>
-                <el-button v-else-if="detectionStatus === 'exception'" type="primary" @click="detectionDialogVisible = false">
+                <el-button v-else-if="detectionStatus === 'exception'" type="primary"
+                    @click="detectionDialogVisible = false">
                     关闭
                 </el-button>
             </template>
+        </el-dialog>
+
+        <!-- 检测详细信息展示 -->
+        <el-dialog v-model="detailDialogVisible" title="检测结果详情" width="75%">
+            <el-table :data="currentVideo?.result || []" border>
+                <el-table-column prop="class_name" label="类别" width="120" />
+                <el-table-column prop="class_name" label="置信度" width="120">
+                    <template #default="{ row }">
+                        {{ (row.confidence * 100).toFixed(2) }}%
+                    </template>
+                </el-table-column>
+                <el-table-column label="帧位置" width="120">
+                    <template #default="{ row }">
+                        {{ row.frame_index }}
+                    </template>
+                </el-table-column>
+                <el-table-column label="持续时间" width="120">
+                    <template #default="{ row }">
+                        {{ row.timestamp }}
+                    </template>
+                </el-table-column>
+
+                <el-table-column label="坐标" >
+                    <template #default="{ row }">
+                        [{{ row.bbox[0].toFixed(0) }}, {{ row.bbox[1].toFixed(0) }}, {{ row.bbox[2].toFixed(0) }}, {{
+                            row.bbox[3].toFixed(0) }}]
+                    </template>
+                </el-table-column>
+            </el-table>
         </el-dialog>
     </div>
 </template>
@@ -91,6 +122,11 @@ const detectionDialogVisible = ref(false)
 const detectionProgress = ref(0)
 const detectionStatus = ref('')
 const detectionMessage = ref('')
+const detailDialogVisible = ref(false)
+const currentVideo = ref({
+    result: []
+});
+
 
 const fetchHistory = async () => {
     try {
@@ -116,9 +152,9 @@ const startDetection = async (row) => {
         // 模拟进度更新
         const updateProgress = () => {
             if (detectionProgress.value < 100) {
-                detectionProgress.value += 10
+                detectionProgress.value += 25
                 detectionMessage.value = `正在处理视频 (${detectionProgress.value}%)...`
-                setTimeout(updateProgress, 500)
+                setTimeout(updateProgress, 1000)
             } else {
                 detectionStatus.value = 'success'
                 detectionMessage.value = '视频检测完成'
@@ -127,13 +163,29 @@ const startDetection = async (row) => {
         }
 
         // 实际调用API
-        const response = await PredictVideo({ 
-            filename: row.video_name,
+        const response = await PredictVideo({
+            videoname: row.video_name,
             onProgress: (progress) => {
                 detectionProgress.value = progress
                 detectionMessage.value = `正在处理视频 (${progress}%)...`
             }
         })
+
+        currentVideo.value.result = response.report.detections.flatMap(item =>
+            item.detection.map(obj => ({
+                class_name: obj.class_name,
+                confidence: obj.confidence,
+                bbox: [
+                    obj.bbox.xmin,
+                    obj.bbox.ymin,
+                    obj.bbox.xmax,
+                    obj.bbox.ymax
+                ],
+                frame_index: item.frame_index,
+                timestamp: item.timestamp
+            }))
+        )
+
 
         // 更新历史记录
         fetchHistory()
@@ -143,6 +195,12 @@ const startDetection = async (row) => {
         detectionMessage.value = `检测失败: ${err.message}`
         ElMessage.error(`视频检测失败: ${err.message}`)
     }
+}
+
+//详细信息展示
+const showDetectionDetails = () => {
+    detectionDialogVisible.value = false
+    detailDialogVisible.value = true
 }
 
 // 返回上传界面
